@@ -1,11 +1,7 @@
 install.packages("RColorBrewer") # coloring the plot
 library("RColorBrewer")
 
-X1 <- cbind(rnorm(50, 10, 20), rnorm(50, 10, 10))
-X2 <- cbind(rnorm(30, 100, 20), rnorm(30, 100, 20))
-X3 <- cbind(rnorm(20, 3, 5), rnorm(20, 120, 5))
-X <- rbind(X1, X2, X3)
-plot(X)
+
 
 euclideanDist <- function (x1, x2) {
     return (sqrt( sum((x1 - x2) ^ 2 )))
@@ -46,15 +42,19 @@ kMeanPlusInit <- function (X, k = 3) {
 }    
     
 
-kmeansPlus <- function (X, k = 3, threshold = 1e-3) {
+kmeans <- function (X, k = 3, initializationMode = "random" , threshold = 1e-3) {
 
     # convert X to matrix    
     X = as.matrix(X)
     
-    # choose k observations randomly from X a centroids
-    centroids = kMeanPlusInit(X, k)
-    # centroidIds = sample(nrow(X), k, replace = FALSE)
-    # centroids = as.matrix(X[centroidIds,])
+    if (initializationMode == "kmeans++") {
+        # k-means plus plus initialization
+        centroids = kMeanPlusInit(X, k)    
+    } else {
+        # choose k observations randomly from X a centroids
+        centroidIds = sample(nrow(X), k, replace = FALSE)
+        centroids = as.matrix(X[centroidIds,])    
+    }
     
     diff = threshold * 2
     
@@ -108,12 +108,35 @@ kmeansPlot <- function (X, centroids, assigment) {
     points(centroids, col = "black", pch=15)
 }
 
-kmeansTest <- function (X, k = 3) {
-    res <- kmeansPlus(X, k)
+kmeansTest <- function (X, k = 3, initializationMode = "random") {
+    res <- kmeans(X, k, initializationMode)
     kmeansPlot(X, res$centroids, res$assignment)
 }
 
-kmeansTest(X)
+# test 1
+X1 <- cbind(rnorm(50, 10, 20), rnorm(50, 10, 10))
+X2 <- cbind(rnorm(30, 100, 20), rnorm(30, 100, 20))
+X3 <- cbind(rnorm(20, 3, 5), rnorm(20, 120, 5))
+X <- rbind(X1, X2, X3)
+plot(X)
+
+kmeansTest(X, initializationMode = "random")
+kmeansTest(X, initializationMode = "kmeans++")
+
+
+# test 2
+D = read.csv("data/six.txt",sep = " ")
+plot(D)
+kmeansTest(D, k = 6, initializationMode = "random")
+kmeansTest(D, k = 6, initializationMode = "kmeans++")
+
+# test 3
+D2 = read.csv("data/three.txt",sep = " ")
+plot(D2)
+kmeansTest(D2, k = 3, initializationMode = "random")
+kmeansTest(D2, k = 3, initializationMode = "kmeans++")
+
+
 
 plotAudio <- function (audio) {
     audio = as.matrix(audio)
@@ -121,7 +144,7 @@ plotAudio <- function (audio) {
 }
 
 encodeAudio <- function (audio, k) {
-    res = kmeansPlus(audio1, k)
+    res = kmeans(audio, initializationMode = "kmeans++", k)
     assignment = res$assignment
     centroids = res$centroids
     encodedAudio = centroids[assignment]    
@@ -130,23 +153,26 @@ encodeAudio <- function (audio, k) {
 
 
 processAudio <- function (inputFilename, k, outputPath) {
-    audio1 = as.matrix(read.table(inputFilename))
+    audioFile = as.matrix(read.table(inputFilename))
+    
     # visualize the data
     originImageName = paste(outputPath, "origin.png", sep="") 
     png(filename= originImageName, width = 1920, height = 1080)
-    plotAudio(audio1)
+    plotAudio(audioFile)
     dev.off()
     
-    encodedAudio1 = encodeAudio(audio1, k)
+    encodedAudioFile = encodeAudio(audioFile, k)
     
     outputImageName = paste(outputPath, "k", k, ".png", sep="")
     png(filename=outputImageName, width = 1920, height = 1080)
-    plotAudio(encodedAudio1)
+    plotAudio(encodedAudioFile)
     dev.off()
     
     outputFilename = paste(outputPath, "k", k, ".integer", sep="")
-    write.table(encodedAudio1, file = outputFilename , row.names = FALSE, col.names=FALSE)
+    write.table(encodedAudioFile, file = outputFilename , row.names = FALSE, col.names=FALSE)
 }
 
-processAudio("data/au1.integer", 5, "/home/quan/dataset/audio/audio1/k5/")
+for (k in c(5, 7,15,25)) {
+    processAudio("audio2/audio2.integer", k, "audio2/")
+}
 
